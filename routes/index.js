@@ -29,6 +29,11 @@ router.get('/generate', async function(req, res, next) {
 
   if (req.headers['x-api-key'] && req.headers['x-api-key'] === process.env.TOKEN) {
 
+    res.status(201).send({
+      ErrorCode: 1,
+      Message: 'VOLUSPA'
+    });
+
     let limit = 50;
     let skip = 0;
     let done = false;
@@ -97,11 +102,6 @@ router.get('/generate', async function(req, res, next) {
       if (err) {
         console.log(err);
       }
-    });
-
-    res.status(201).send({
-      ErrorCode: 1,
-      Message: 'VOLUSPA'
     });
   } else {
     res.status(401).send({
