@@ -4,25 +4,66 @@ const _ = require('lodash');
 const fs = require('fs');
 
 const router = express.Router();
-const Profile = require('../models/profile');
+const Profile = require('../../models/profile');
 
 dotenv.config();
 
-router.get('/', function(req, res, next) {
+router.get('/', async function(req, res, next) {
 
-  let cache;
-  fs.readFile('cache.json', 'utf-8', function(err, buffer) {
-    if (err) {
-      console.log(err);
-    }
-    cache = JSON.parse(buffer);
+  let limit = 50;
+  let skip = 0;
 
+  try {
+    let ranks = [];
+    let responseErrors = 0;
+
+    let profiles = await Profile.find().limit(limit).skip(skip);
+
+    // profile.forEach(profile => {
+
+    //   if (!profile.response) {
+    //     responseErrors++;
+    //     return;
+    //   }
+
+    //   if (!profile.response.Response.profileRecords.data) {
+    //     // responseErrors++;
+    //     // console.log(`${profile.response.Response.profile.data.userInfo.displayName} ${profile.response.Response.profile.data.userInfo.membershipType}/${profile.response.Response.profile.data.userInfo.membershipId}`);
+    //     return;
+    //   }
+
+    //   let Response = profile.response.Response;
+
+    //   let timePlayed = Object.keys(Response.characters.data).reduce((sum, key) => {
+    //     return sum + parseInt(Response.characters.data[key].minutesPlayedTotal);
+    //   }, 0);
+
+    //   ranks.push({
+    //     userInfo: Response.profile.data.userInfo,
+    //     timePlayed,
+    //     triumphScore: Response.profileRecords.data.score
+    //   });
+    // });
+
+    let data = profiles.map(p => p.response);
+    
     res.status(200).send({
       ErrorCode: 1,
       Message: 'VOLUSPA',
-      Response: cache
+      Response: {
+        data
+      }
     });
-  });
+  } catch (e) {
+    console.error(e);
+
+    res.status(200).send({
+      ErrorCode: 500,
+      Message: 'VOLUSPA',
+      Response: e
+    });
+  }
+
 });
 
 router.get('/generate', async function(req, res, next) {
