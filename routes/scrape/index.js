@@ -83,8 +83,13 @@ router.get('/', async function(req, res, next) {
         if (request.response.ErrorCode !== 1) {
           console.log(`Bungie: ${task.membershipType}:${task.membershipId} ${request.number}/${s.length} ErrorCode: ${request.response.ErrorCode}`);
         } else {
+
+          if (!request.response.Response.profileRecords.data) {
+            console.log(`Error:  ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length} is a private profile`);
+            return;
+          }
+
           let store = values(request.response);
-          //console.log(store)
           
           profile_controller.PROFILE_STORE(store);
     

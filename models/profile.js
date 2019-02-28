@@ -11,32 +11,37 @@ let schema = new Schema({
     required: true
   },
   timePlayed: {
-    type: Int,
-    required: true
+    type: Number,
+    required: true,
+    tags: { type: [Number], index: true }
   },
   triumphScore: {
-    type: Int,
-    required: true
+    type: Number,
+    required: true,
+    tags: { type: [Number], index: true }
   },
   infamyProgression: {
-    type: Int,
+    type: Number,
     required: true
   },
   infamyResets: {
-    type: Int,
-    required: true
+    type: Number,
+    required: true,
+    tags: { type: [Number], index: true }
   },
   valorProgression: {
-    type: Int,
+    type: Number,
     required: true
   },
   valorResets: {
-    type: Int,
-    required: true
+    type: Number,
+    required: true,
+    tags: { type: [Number], index: true }
   },
   gloryProgression: {
-    type: Int,
-    required: true
+    type: Number,
+    required: true,
+    tags: { type: [Number], index: true }
   }
 });
 
