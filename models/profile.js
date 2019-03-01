@@ -10,6 +10,14 @@ let schema = new Schema({
     type: String,
     required: true
   },
+  displayName: {
+    type: String,
+    required: true
+  },
+  characters: {
+    type: Object,
+    required: true
+  },
   timePlayed: {
     type: Number,
     required: true,

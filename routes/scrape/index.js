@@ -16,6 +16,10 @@ const values = (response) => {
 
   let membershipType = response.Response.profile.data.userInfo.membershipType.toString();
   let membershipId = response.Response.profile.data.userInfo.membershipId;
+  let displayName = response.Response.profile.data.userInfo.displayName;
+  let dateLastPlayed = response.Response.profile.data.dateLastPlayed;
+
+  let characters = Object.values(response.Response.characters.data);
 
   let timePlayed = Object.keys(response.Response.characters.data).reduce((sum, key) => {
     return sum + parseInt(response.Response.characters.data[key].minutesPlayedTotal);
@@ -34,6 +38,9 @@ const values = (response) => {
   return {
     membershipType,
     membershipId,
+    displayName,
+    dateLastPlayed,
+    characters,
     timePlayed,
     triumphScore,
     infamyProgression,

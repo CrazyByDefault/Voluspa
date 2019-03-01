@@ -10,7 +10,7 @@ router.get('/', async function(req, res, next) {
 
   console.log(req.query)
 
-  let limit = 50;
+  let limit = 25;
   let offset = parseInt(req.query.offset, 10) || 0;
   let sort = req.query.sort || 'triumphScore';
 
@@ -20,6 +20,9 @@ router.get('/', async function(req, res, next) {
       return {
         membershipType: p.membershipType,
         membershipId: p.membershipId,
+        displayName: p.displayName,
+        dateLastPlayed: p.dateLastPlayed,
+        characters: p.characters,
         timePlayed: p.timePlayed,
         triumphScore: p.triumphScore,
         infamyProgression: p.infamyProgression,
