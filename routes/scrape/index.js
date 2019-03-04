@@ -4,6 +4,8 @@ const fetch = require('node-fetch');
 const async = require('async');
 
 const router = express.Router();
+
+const Status = require('../../models/status');
 const Member = require('../../models/member');
 const Profile = require('../../models/profile');
 const profile_controller = require('../../controllers/profile');
@@ -69,6 +71,17 @@ router.get('/', async function(req, res, next) {
 
   if (req.headers['x-api-key'] && req.headers['x-api-key'] === process.env.TOKEN) {
 
+    let newStatus = new Status({
+      scraper: {
+        isScraping: true
+      }
+    });
+    newStatus.save(function(err) {
+      if (err) {
+        console.log(err);
+      }
+    });
+
     try {
       await Profile.deleteMany({});
     } catch (e) {
@@ -80,7 +93,7 @@ router.get('/', async function(req, res, next) {
       progress: 0
     };
 
-    var q = async.queue(async function(task) {
+    var q = async.queue(async function(task, callback) {
       s.progress++;
 
       try {
@@ -108,6 +121,21 @@ router.get('/', async function(req, res, next) {
       }
     }, 7);
 
+    q.drain = function() {
+      console.log('q done');
+
+      let newStatus = new Status({
+        scraper: {
+          isScraping: false
+        }
+      });
+      newStatus.save(function(err) {
+        if (err) {
+          console.log(err);
+        }
+      });
+    }
+
     let members;
     try {
       members = await Member.find();
@@ -120,13 +148,12 @@ router.get('/', async function(req, res, next) {
       q.push(m);
     });
 
-
     res.status(200).send({
       ErrorCode: 1,
       Message: 'VOLUSPA'
     });
   } else {
-    console.log(process.env.TOKEN)
+    console.log(`401 scrape token ${req.headers['x-api-key']}`)
     res.status(401).send({
       ErrorCode: 401,
       Message: 'VOLUSPA'

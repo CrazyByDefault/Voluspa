@@ -4,6 +4,7 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
 var indexRouter = require('./routes/index');
+var statusRouter = require('./routes/status');
 var scrapeRouter = require('./routes/scrape');
 
 var app = express();
@@ -25,6 +26,7 @@ app.use(function(req, res, next) {
 });
 
 app.use('/', indexRouter);
+app.use('/status', statusRouter);
 app.use('/scrape', scrapeRouter);
 app.use('/member/store', member_controller.MEMBER_STORE);
 
