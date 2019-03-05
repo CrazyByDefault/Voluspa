@@ -6,12 +6,9 @@ var logger = require('morgan');
 var indexRouter = require('./routes/index');
 var statusRouter = require('./routes/status');
 var scrapeRouter = require('./routes/scrape');
+var memberRouter = require('./routes/member');
 
 var app = express();
-
-const db = require('./db');
-
-const member_controller = require('./controllers/member');
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -28,6 +25,6 @@ app.use(function(req, res, next) {
 app.use('/', indexRouter);
 app.use('/status', statusRouter);
 app.use('/scrape', scrapeRouter);
-app.use('/member/store', member_controller.MEMBER_STORE);
+app.use('/member', memberRouter);
 
 module.exports = app;

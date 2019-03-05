@@ -1,12 +1,17 @@
 const dotenv = require('dotenv');
-const mongoose = require('mongoose');
+const mysql = require('mysql');
 
 dotenv.config();
 
-const url = `mongodb://${process.env.MONGO_USERNAME}:${process.env.MONGO_PASSWORD}@${process.env.MONGO_HOSTNAME}:${process.env.MONGO_PORT}/${process.env.MONGO_DB}?authSource=admin`;
+const connection = mysql.createConnection({
+  host     : 'localhost',
+  user     : process.env.MYSQL_USER,
+  password : process.env.MYSQL_PASSWORD,
+  database : process.env.MYSQL_DATABASE
+});
 
-mongoose.connect(url, { useNewUrlParser: true });
+connection.connect(function(err) {
+  if (err) throw err;
+});
 
-mongoose.Promise = global.Promise;
-const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'MongoDB connection error:'));
+module.exports = connection;

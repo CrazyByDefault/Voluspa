@@ -14,6 +14,10 @@ let schema = new Schema({
     type: String,
     required: true
   },
+  dateLastPlayed: {
+    type: String,
+    required: true
+  },
   characters: {
     type: Object,
     required: true
