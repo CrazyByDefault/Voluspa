@@ -1,16 +1,13 @@
 const dotenv = require('dotenv');
 const express = require('express');
+const mysql = require('mysql');
 const fetch = require('node-fetch');
 const async = require('async');
 
 const router = express.Router();
 
-const Status = require('../../models/status');
-const Member = require('../../models/member');
-const Profile = require('../../models/profile');
-const profile_controller = require('../../controllers/profile');
-
-// const values = require('./values.js');
+const database = require('../../db');
+const db = new database();
 
 dotenv.config();
 
@@ -41,8 +38,8 @@ const values = (response) => {
     membershipType,
     membershipId,
     displayName,
-    dateLastPlayed,
-    characters,
+    dateLastPlayed: new Date(dateLastPlayed),
+    characters: JSON.stringify(characters),
     timePlayed,
     triumphScore,
     infamyProgression,
@@ -67,26 +64,23 @@ const callBungie = async (membershipType, membershipId, number) => {
   };
 }
 
+const setState = (isScraping) => {
+  let sql = "UPDATE `status` SET `isScraping` = ? WHERE `status`.`id` = 1";
+  let inserts = [isScraping];
+  sql = mysql.format(sql, inserts);
+
+  db.query(sql);
+}
+
 router.get('/', async function(req, res, next) {
 
   if (req.headers['x-api-key'] && req.headers['x-api-key'] === process.env.TOKEN) {
 
-    let newStatus = new Status({
-      scraper: {
-        isScraping: true
-      }
-    });
-    newStatus.save(function(err) {
-      if (err) {
-        console.log(err);
-      }
-    });
+    // set status
 
-    try {
-      await Profile.deleteMany({});
-    } catch (e) {
-      console.error(e);
-    }
+    setState(1);
+
+    // end set status
 
     let s = {
       length: 0,
@@ -110,8 +104,12 @@ router.get('/', async function(req, res, next) {
           }
 
           let store = values(request.response);
-          
-          profile_controller.PROFILE_STORE(store);
+
+          let sql = "UPDATE `members` SET `displayName` = ?, `dateLastPlayed` = ?, `timePlayed` = ?, `characters` = ?, `triumphScore` = ?, `infamyResets` = ?, `infamyProgression` = ?, `valorResets` = ?, `valorProgression` = ?, `gloryProgression` = ? WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?";
+          let inserts = [store.displayName, store.dateLastPlayed, store.timePlayed, store.characters, store.triumphScore, store.infamyResets, store.infamyProgression, store.valorResets, store.valorProgression, store.gloryProgression, task.membershipType, task.membershipId];
+          sql = mysql.format(sql, inserts);
+
+          let update = await db.query(sql);
     
           console.log(`OK:     ${task.membershipType}:${task.membershipId} ${request.number}/${s.length}`);
         }
@@ -124,24 +122,18 @@ router.get('/', async function(req, res, next) {
     q.drain = function() {
       console.log('q done');
 
-      let newStatus = new Status({
-        scraper: {
-          isScraping: false
-        }
-      });
-      newStatus.save(function(err) {
-        if (err) {
-          console.log(err);
-        }
-      });
+      // set status
+
+      setState(0);
+
+      // end set status
     }
 
-    let members;
-    try {
-      members = await Member.find();
-    } catch (e) {
-      console.error(e);
-    }
+    let sql = "SELECT `id`, `membershipType`, `membershipId` FROM `members`";
+    let inserts = [];
+    sql = mysql.format(sql, inserts);
+
+    let members = await db.query(sql);
 
     s.length = members.length;
     members.forEach(m => {
