@@ -64,12 +64,23 @@ const callBungie = async (membershipType, membershipId, number) => {
   };
 }
 
-const setState = (isScraping) => {
-  let sql = "UPDATE `status` SET `isScraping` = ? WHERE `status`.`id` = 1";
-  let inserts = [isScraping];
-  sql = mysql.format(sql, inserts);
+const CURRENT_TIMESTAMP = { toSqlString: function() { return 'CURRENT_TIMESTAMP()'; } };
 
-  db.query(sql);
+const setState = (isScraping) => {
+
+  if (isScraping === '1') {
+    let sql = "UPDATE `status` SET `isScraping` = '1' WHERE `status`.`id` = 1";
+    let inserts = [isScraping];
+    sql = mysql.format(sql, inserts);
+
+    db.query(sql);
+  } else {
+    let sql = "UPDATE `status` SET `isScraping` = '0', `lastScraped` = ? WHERE `status`.`id` = 1";
+    let inserts = [CURRENT_TIMESTAMP];
+    sql = mysql.format(sql, inserts);
+
+    db.query(sql);
+  }
 }
 
 router.get('/', async function(req, res, next) {
@@ -105,8 +116,8 @@ router.get('/', async function(req, res, next) {
 
           let store = values(request.response);
 
-          let sql = "UPDATE `members` SET `displayName` = ?, `dateLastPlayed` = ?, `timePlayed` = ?, `characters` = ?, `triumphScore` = ?, `infamyResets` = ?, `infamyProgression` = ?, `valorResets` = ?, `valorProgression` = ?, `gloryProgression` = ? WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?";
-          let inserts = [store.displayName, store.dateLastPlayed, store.timePlayed, store.characters, store.triumphScore, store.infamyResets, store.infamyProgression, store.valorResets, store.valorProgression, store.gloryProgression, task.membershipType, task.membershipId];
+          let sql = "UPDATE `members` SET `lastScraped` = ?, `displayName` = ?, `dateLastPlayed` = ?, `timePlayed` = ?, `characters` = ?, `triumphScore` = ?, `infamyResets` = ?, `infamyProgression` = ?, `valorResets` = ?, `valorProgression` = ?, `gloryProgression` = ? WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?";
+          let inserts = [CURRENT_TIMESTAMP, store.displayName, store.dateLastPlayed, store.timePlayed, store.characters, store.triumphScore, store.infamyResets, store.infamyProgression, store.valorResets, store.valorProgression, store.gloryProgression, task.membershipType, task.membershipId];
           sql = mysql.format(sql, inserts);
 
           let update = await db.query(sql);
@@ -117,14 +128,14 @@ router.get('/', async function(req, res, next) {
       } catch(e) {
         console.log(`Error:  ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length}`, e);
       }
-    }, 7);
+    }, 5);
 
     q.drain = function() {
       console.log('q done');
 
       // set status
 
-      setState(0);
+      setState('0');
 
       // end set status
     }
