@@ -9,6 +9,8 @@ const router = express.Router();
 const database = require('../../db');
 const db = new database();
 
+const fs = require("fs");
+
 dotenv.config();
 
 const values = (response) => {
@@ -89,7 +91,7 @@ router.get('/', async function(req, res, next) {
 
     // set status
 
-    setState(1);
+    setState('1');
 
     // end set status
 
@@ -97,6 +99,9 @@ router.get('/', async function(req, res, next) {
       length: 0,
       progress: 0
     };
+
+    let triumphStats = {};
+    let memberActual = 0;
 
     var q = async.queue(async function(task, callback) {
       s.progress++;
@@ -121,7 +126,47 @@ router.get('/', async function(req, res, next) {
           sql = mysql.format(sql, inserts);
 
           let update = await db.query(sql);
-    
+          
+
+
+          memberActual++;
+
+          //
+
+          for (const [hash, record] of Object.entries(request.response.Response.profileRecords.data.records)) {
+            let recordState = enumerateRecordState(record.state);
+            if (!recordState.objectiveNotCompleted) {
+              if (triumphStats[hash]) {
+                triumphStats[hash]++;
+              } else {
+                triumphStats[hash] = 1;
+              }
+            }
+          }
+
+          let charTemp = {};
+
+          for (const [characterId, character] of Object.entries(request.response.Response.characterRecords.data)) {
+            for (const [hash, record] of Object.entries(character.records)) {
+              let recordState = enumerateRecordState(record.state);
+              if (!recordState.objectiveNotCompleted) {
+                if (!charTemp[hash]) {
+                  charTemp[hash] = 1;
+                }
+              }
+            }
+          }
+
+          for (const [hash, record] of Object.entries(charTemp)) {
+            if (triumphStats[hash]) {
+              triumphStats[hash]++;
+            } else {
+              triumphStats[hash] = 1;
+            }
+          }
+
+          //
+
           console.log(`OK:     ${task.membershipType}:${task.membershipId} ${request.number}/${s.length}`);
         }
 
@@ -132,6 +177,28 @@ router.get('/', async function(req, res, next) {
 
     q.drain = function() {
       console.log('q done');
+
+      fs.writeFile('./cache/temp.json', JSON.stringify(triumphStats), function(err, data) {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log("Successfully Written to File.");
+        }
+      });
+
+      console.log(memberActual);
+
+      for (const [hash, total] of Object.entries(triumphStats)) {
+        triumphStats[hash] = (total / memberActual * 100).toFixed(2);
+      }
+
+      fs.writeFile('./cache/triumphs.json', JSON.stringify(triumphStats), function(err, data) {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log("Successfully Written to File.");
+        }
+      });
 
       // set status
 
@@ -162,6 +229,19 @@ router.get('/', async function(req, res, next) {
       Message: 'VOLUSPA'
     });
   }
+});
+
+const flagEnum = (state, value) => !!(state & value);
+
+const enumerateRecordState = state => ({
+  none: flagEnum(state, 0),
+  recordRedeemed: flagEnum(state, 1),
+  rewardUnavailable: flagEnum(state, 2),
+  objectiveNotCompleted: flagEnum(state, 4),
+  obscured: flagEnum(state, 8),
+  invisible: flagEnum(state, 16),
+  entitlementUnowned: flagEnum(state, 32),
+  canEquipTitle: flagEnum(state, 64)
 });
 
 module.exports = router;

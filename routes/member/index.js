@@ -34,36 +34,53 @@ router.post('/store', async function(req, res, next) {
 
 });
 
-router.post('/rank', async function(req, res, next) {
+router.get('/rank', async function(req, res, next) {
 
-  let membershipType = req.body.membershipType || false;
-  let membershipId = req.body.membershipId || false;
+  let membershipType = req.query.membershipType || false;
+  let membershipId = req.query.membershipId || false;
 
   let sort = req.query.sort || 'triumphScore';
 
-  try {
-    let sql = "SELECT `membershipType`, `membershipId`, `displayName`, `triumphScore`, `rank` FROM (SELECT `id`, `displayName`, `triumphScore`, `membershipType`, `membershipId`, DENSE_RANK() OVER (ORDER BY `triumphScore` DESC) `rank` FROM `members` ORDER BY `rank` ASC) `R` WHERE `R`.`membershipType` = ? AND `R`.`membershipId` = ?";
-    let inserts = [membershipType, membershipId];
-    sql = mysql.format(sql, inserts);
+  if (membershipType && membershipId) {
 
-    let data = await db.query(sql);
+    try {
+      let sql = "SELECT `membershipType`, `membershipId`, `displayName`, `triumphScore`, `rank` FROM (SELECT `id`, `displayName`, `triumphScore`, `membershipType`, `membershipId`, DENSE_RANK() OVER (ORDER BY `triumphScore` DESC) `rank` FROM `members` ORDER BY `rank` ASC) `R` WHERE `R`.`membershipType` = ? AND `R`.`membershipId` = ?";
+      let inserts = [membershipType, membershipId];
+      sql = mysql.format(sql, inserts);
 
+      let data = await db.query(sql);
+      data = data[0];
+
+      res.status(200).send({
+        ErrorCode: 1,
+        Message: 'VOLUSPA',
+        Response: {
+          destinyUserInfo: {
+            membershipType: data.membershipType,
+            membershipId: data.membershipId,
+            displayName: data.displayName
+          },
+          triumphScore: data.triumphScore,
+          rank: data.rank
+        }
+      });
+    } catch (e) {
+      console.error(e);
+
+      res.status(200).send({
+        ErrorCode: 500,
+        Message: 'VOLUSPA',
+        Response: e
+      });
+    }
+  } else {
     res.status(200).send({
-      ErrorCode: 1,
-      Message: 'VOLUSPA',
-      Response: {
-        data
-      }
-    });
-  } catch (e) {
-    console.error(e);
-
-    res.status(200).send({
-      ErrorCode: 500,
-      Message: 'VOLUSPA',
-      Response: e
+      ErrorCode: 18,
+      ErrorStatus: "InvalidParameters",
+      Message: "The input parameters were invalid, please enter valid input, and try again."
     });
   }
+
 });
 
 module.exports = router;

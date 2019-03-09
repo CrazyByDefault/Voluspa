@@ -4,9 +4,13 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
 var indexRouter = require('./routes/index');
+var testRouter = require('./routes/test');
+
+var leaderboardRouter = require('./routes/leaderboard');
 var statusRouter = require('./routes/status');
 var scrapeRouter = require('./routes/scrape');
 var memberRouter = require('./routes/member');
+var statsRouter = require('./routes/statistics');
 
 var app = express();
 
@@ -23,8 +27,12 @@ app.use(function(req, res, next) {
 });
 
 app.use('/', indexRouter);
+app.use('/test', testRouter);
+
+app.use('/leaderboard', leaderboardRouter);
 app.use('/status', statusRouter);
-app.use('/scrape', scrapeRouter);
 app.use('/member', memberRouter);
+app.use('/scrape', scrapeRouter);
+app.use('/statistics', statsRouter);
 
 module.exports = app;

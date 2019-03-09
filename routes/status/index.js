@@ -2,7 +2,6 @@ const dotenv = require('dotenv');
 const express = require('express');
 
 const router = express.Router();
-const Status = require('../../models/status');
 
 dotenv.config();
 

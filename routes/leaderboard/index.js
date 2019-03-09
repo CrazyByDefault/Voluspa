@@ -8,7 +8,7 @@ const db = new database();
 
 dotenv.config();
 
-router.get('/', async function(req, res, next) {
+router.get('/triumphScore', async function(req, res, next) {
 
   console.log(req.query)
 
