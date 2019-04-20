@@ -11,6 +11,8 @@ var statusRouter = require('./routes/status');
 var scrapeRouter = require('./routes/scrape');
 var memberRouter = require('./routes/member');
 var statsRouter = require('./routes/statistics');
+var oauthRouter = require('./routes/oauth');
+var vendorRouter = require('./routes/vendor');
 
 var app = express();
 
@@ -28,6 +30,9 @@ app.use(function(req, res, next) {
 
 app.use('/', indexRouter);
 app.use('/test', testRouter);
+
+app.use('/oauth', oauthRouter);
+app.use('/vendor', vendorRouter);
 
 app.use('/leaderboard', leaderboardRouter);
 app.use('/status', statusRouter);

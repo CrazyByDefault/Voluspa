@@ -68,7 +68,7 @@ const callBungie = async (membershipType, membershipId, number) => {
 
 const CURRENT_TIMESTAMP = { toSqlString: function() { return 'CURRENT_TIMESTAMP()'; } };
 
-const setState = (isScraping) => {
+const setState = (isScraping, duration = 0) => {
 
   if (isScraping === '1') {
     let sql = "UPDATE `status` SET `isScraping` = '1' WHERE `status`.`id` = 1";
@@ -77,8 +77,8 @@ const setState = (isScraping) => {
 
     db.query(sql);
   } else {
-    let sql = "UPDATE `status` SET `isScraping` = '0', `lastScraped` = ? WHERE `status`.`id` = 1";
-    let inserts = [CURRENT_TIMESTAMP];
+    let sql = "UPDATE `status` SET `isScraping` = '0', `lastScraped` = ?, `lastScrapedDuration` = ? WHERE `status`.`id` = 1";
+    let inserts = [CURRENT_TIMESTAMP, duration];
     sql = mysql.format(sql, inserts);
 
     db.query(sql);
@@ -92,6 +92,8 @@ router.get('/', async function(req, res, next) {
     // set status
 
     setState('1');
+
+    const scrapeStart = new Date().getTime();
 
     // end set status
 
@@ -173,7 +175,7 @@ router.get('/', async function(req, res, next) {
       } catch(e) {
         console.log(`Error:  ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length}`, e);
       }
-    }, 5);
+    }, 10);
 
     q.drain = function() {
       console.log('q done');
@@ -200,9 +202,12 @@ router.get('/', async function(req, res, next) {
         }
       });
 
+      
+      const scrapeEnd = new Date().getTime();
+
       // set status
 
-      setState('0');
+      setState('0', scrapeEnd - scrapeStart);
 
       // end set status
     }
