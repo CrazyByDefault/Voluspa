@@ -34,24 +34,18 @@ router.get('/', async function(req, res, next) {
 });
 
 router.get('/authorize', async function(req, res, next) {
-  const clientId = '26441';
-
-  res.writeHead(302, { Location: `https://www.bungie.net/en/OAuth/Authorize?client_id=${clientId}&response_type=code` });
+  res.writeHead(302, { Location: `https://www.bungie.net/en/OAuth/Authorize?client_id=${process.env.BUNGIE_CLIENT_ID}&response_type=code` });
   return res.end();
 });
 
 router.get('/callback', async function(req, res, next) {
-  const apiKey = 'c148b45f6eda40c8b707b5a8cf848e40';
-  const clientId = '26441';
-  const clientSecret = 'ovZX00LmAFkUTh9MTBtIS2BLvtrLSFxUdY4E59OHnU0';
   const code = req.query.code;
-  //const current_time = time();
 
   let request = await fetch(`https://www.bungie.net/Platform/App/OAuth/Token/`, {
     method: 'post',
     body: `grant_type=authorization_code&code=${code}`,
     headers: {
-      'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+      'Authorization': `Basic ${Buffer.from(`${process.env.BUNGIE_CLIENT_ID}:${process.env.BUNGIE_CLIENT_SECRET}`).toString('base64')}`,
       'X-API-KEY': process.env.BUNGIE_API_KEY,
       'Content-Type': 'application/x-www-form-urlencoded'
     }
