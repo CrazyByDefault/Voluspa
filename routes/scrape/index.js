@@ -52,7 +52,7 @@ const values = (response) => {
   }
 }
 
-const callBungie = async (membershipType, membershipId, number) => {
+const getProfile = async (membershipType, membershipId, number) => {
   let request = await fetch(`https://www.bungie.net/Platform/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,104,200,202,800,900`, {
     "headers":{
       "x-api-key": process.env.BUNGIE_API_KEY
@@ -64,6 +64,31 @@ const callBungie = async (membershipType, membershipId, number) => {
     response,
     number
   };
+}
+
+const getGroupMembers = async (groupId, number) => {
+  let request = await fetch(`https://www.bungie.net/Platform/GroupV2/${groupId}/Members/`, {
+    "headers":{
+      "x-api-key": process.env.BUNGIE_API_KEY
+    },
+  });
+  let response = await request.json();
+
+  return {
+    response,
+    number
+  };
+}
+
+const getMemberGroups = async (membershipType, membershipId) => {
+  let request = await fetch(`https://www.bungie.net/Platform/GroupV2/User/${membershipType}/${membershipId}/0/1/`, {
+    "headers":{
+      "x-api-key": process.env.BUNGIE_API_KEY
+    },
+  });
+  let response = await request.json();
+
+  return response;
 }
 
 const CURRENT_TIMESTAMP = { toSqlString: function() { return 'CURRENT_TIMESTAMP()'; } };
@@ -105,26 +130,48 @@ router.get('/', async function(req, res, next) {
     let triumphStats = {};
     let memberActual = 0;
 
-    var q = async.queue(async function(task, callback) {
+    let q = async.queue(async function(task, callback) {
       s.progress++;
 
       try {
         console.log(`GET:    ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length}`);
-        let request = await callBungie(task.membershipType, task.membershipId, s.progress);
 
-        if (request.response.ErrorCode !== 1) {
-          console.log(`Bungie: ${task.membershipType}:${task.membershipId} ${request.number}/${s.length} ErrorCode: ${request.response.ErrorCode}`);
+        let [profile, groups] = await Promise.all([getProfile(task.membershipType, task.membershipId, s.progress), getMemberGroups(task.membershipType, task.membershipId)]);
+        
+        if (profile.response.ErrorCode !== 1) {
+          console.log(`Bungie: ${task.membershipType}:${task.membershipId} ${profile.number}/${s.length} ErrorCode: ${profile.response.ErrorCode}`);
         } else {
 
-          if (!request.response.Response.profileRecords.data) {
+          let groupId = null;
+          if (groups.ErrorCode === 1 && groups.Response.results.length > 0) {
+            groupId = groups.Response.results[0].group.groupId;
+          }
+
+          if (!profile.response.Response.profileRecords.data) {
             console.log(`Error:  ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length} is a private profile`);
+
+            let displayName = null;
+            let dateLastPlayed = null;
+            try {
+              displayName = response.Response.profile.data.userInfo.displayName;
+              dateLastPlayed = response.Response.profile.data.dateLastPlayed;
+            } catch (e) {
+
+            }
+            
+            let sql = "UPDATE `members` SET `lastScraped` = ?, `displayName` = COALESCE(?, displayName), `dateLastPlayed` = COALESCE(?, dateLastPlayed), `groupId` = COALESCE(?, groupId) WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?";
+            let inserts = [CURRENT_TIMESTAMP, displayName, dateLastPlayed, groupId, task.membershipType, task.membershipId];
+            sql = mysql.format(sql, inserts);
+  
+            let update = await db.query(sql);
+
             return;
           }
 
-          let store = values(request.response);
+          let store = values(profile.response);
 
-          let sql = "UPDATE `members` SET `lastScraped` = ?, `displayName` = ?, `dateLastPlayed` = ?, `timePlayed` = ?, `characters` = ?, `triumphScore` = ?, `infamyResets` = ?, `infamyProgression` = ?, `valorResets` = ?, `valorProgression` = ?, `gloryProgression` = ? WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?";
-          let inserts = [CURRENT_TIMESTAMP, store.displayName, store.dateLastPlayed, store.timePlayed, store.characters, store.triumphScore, store.infamyResets, store.infamyProgression, store.valorResets, store.valorProgression, store.gloryProgression, task.membershipType, task.membershipId];
+          let sql = "UPDATE `members` SET `lastScraped` = ?, `lastPublic` = ?, `displayName` = ?, `dateLastPlayed` = ?, `timePlayed` = ?, `characters` = ?, `triumphScore` = ?, `infamyResets` = ?, `infamyProgression` = ?, `valorResets` = ?, `valorProgression` = ?, `gloryProgression` = ?, `groupId` = COALESCE(?, groupId) WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?";
+          let inserts = [CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, store.displayName, store.dateLastPlayed, store.timePlayed, store.characters, store.triumphScore, store.infamyResets, store.infamyProgression, store.valorResets, store.valorProgression, store.gloryProgression, groupId, task.membershipType, task.membershipId];
           sql = mysql.format(sql, inserts);
 
           let update = await db.query(sql);
@@ -135,7 +182,7 @@ router.get('/', async function(req, res, next) {
 
           //
 
-          for (const [hash, record] of Object.entries(request.response.Response.profileRecords.data.records)) {
+          for (const [hash, record] of Object.entries(profile.response.Response.profileRecords.data.records)) {
             let recordState = enumerateRecordState(record.state);
             if (!recordState.objectiveNotCompleted) {
               if (triumphStats[hash]) {
@@ -148,7 +195,7 @@ router.get('/', async function(req, res, next) {
 
           let charTemp = {};
 
-          for (const [characterId, character] of Object.entries(request.response.Response.characterRecords.data)) {
+          for (const [characterId, character] of Object.entries(profile.response.Response.characterRecords.data)) {
             for (const [hash, record] of Object.entries(character.records)) {
               let recordState = enumerateRecordState(record.state);
               if (!recordState.objectiveNotCompleted) {
@@ -169,7 +216,7 @@ router.get('/', async function(req, res, next) {
 
           //
 
-          console.log(`OK:     ${task.membershipType}:${task.membershipId} ${request.number}/${s.length}`);
+          console.log(`OK:     ${task.membershipType}:${task.membershipId} ${profile.number}/${s.length}`);
         }
 
       } catch(e) {
@@ -221,6 +268,99 @@ router.get('/', async function(req, res, next) {
     s.length = members.length;
     members.forEach(m => {
       q.push(m);
+    });
+
+    res.status(200).send({
+      ErrorCode: 1,
+      Message: 'VOLUSPA'
+    });
+  } else {
+    console.log(`401 scrape token ${req.headers['x-api-key']}`)
+    res.status(401).send({
+      ErrorCode: 401,
+      Message: 'VOLUSPA'
+    });
+  }
+});
+
+router.get('/groups', async function(req, res, next) {
+
+  if (req.headers['x-api-key'] && req.headers['x-api-key'] === process.env.TOKEN) {
+
+    // set status
+
+    setState('1');
+
+    const scrapeStart = new Date().getTime();
+
+    // end set status
+
+    let s = {
+      length: 0,
+      progress: 0
+    };
+
+    let groupsActual = 0;
+
+    let q = async.queue(async function(task, callback) {
+      console.log(task);
+      s.progress++;
+
+      try {
+        console.log(`GET:    ${task.groupId} ${s.progress}/${s.length}`);
+
+        let groupMembers = await getGroupMembers(task.groupId, s.progress);
+
+        if (groupMembers.response.ErrorCode !== 1) {
+          console.log(`Bungie: ${task.groupId} ${groupMembers.numbers}/${s.length} ErrorCode: ${groupMembers.response.ErrorCode}`);
+        } else {
+
+          let members = groupMembers.response.Response.results || [];
+          members = members.map(g => [g.destinyUserInfo.membershipType, g.destinyUserInfo.membershipId, g.destinyUserInfo.displayName, task.groupId]);
+
+          let sql = "INSERT IGNORE INTO `members` (`membershipType`, `membershipId`, `displayName`, `groupId`) VALUES ?";
+          let inserts = [members];
+          sql = mysql.format(sql, inserts);
+
+          let inserted = await db.query(sql);
+
+          console.log(inserted.changedRows);
+
+          groupsActual++;
+
+          
+
+          console.log(`OK:     ${task.groupId} ${groupMembers.number}/${s.length}`);
+        }
+
+      } catch(e) {
+        console.log(`Error:  ${task.groupId} ${s.progress}/${s.length}`, e);
+      }
+    }, 10);
+
+    q.drain = function() {
+      console.log('q done');
+      console.log(groupsActual);
+      console.log(s);
+      
+      const scrapeEnd = new Date().getTime();
+
+      // set status
+
+      setState('0', scrapeEnd - scrapeStart);
+
+      // end set status
+    }
+
+    let sql = "SELECT DISTINCT `groupId` FROM `members`";
+    let inserts = [];
+    sql = mysql.format(sql, inserts);
+
+    let groups = await db.query(sql);
+
+    s.length = groups.length;
+    groups.forEach(g => {
+      q.push(g);
     });
 
     res.status(200).send({
