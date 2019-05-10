@@ -1,8 +1,12 @@
 const dotenv = require('dotenv');
 const express = require('express');
 const mysql = require('mysql');
-const fetch = require('node-fetch');
 const async = require('async');
+const qrate = require('qrate');
+
+const chalk = require('chalk');
+
+const { httpGet } = require('../../http');
 
 const router = express.Router();
 
@@ -19,6 +23,11 @@ const values = (response) => {
   let membershipId = response.Response.profile.data.userInfo.membershipId;
   let displayName = response.Response.profile.data.userInfo.displayName;
   let dateLastPlayed = response.Response.profile.data.dateLastPlayed;
+
+  let dateTest = new Date(dateLastPlayed).getTime();
+  if (dateTest < 10000) {
+    dateLastPlayed = null;
+  }
 
   let characters = Object.values(response.Response.characters.data);
 
@@ -40,7 +49,7 @@ const values = (response) => {
     membershipType,
     membershipId,
     displayName,
-    dateLastPlayed: new Date(dateLastPlayed),
+    dateLastPlayed: !dateLastPlayed ? null : new Date(dateLastPlayed),
     characters: JSON.stringify(characters),
     timePlayed,
     triumphScore,
@@ -52,13 +61,63 @@ const values = (response) => {
   }
 }
 
-const getProfile = async (membershipType, membershipId, number) => {
-  let request = await fetch(`https://www.bungie.net/Platform/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,104,200,202,800,900`, {
-    "headers":{
-      "x-api-key": process.env.BUNGIE_API_KEY
-    },
+function getDestiny(pathname, opts = {}, postBody) {
+  const hostname = opts.useStatsEndpoint
+    ? `https://stats.bungie.net`
+    : 'https://www.bungie.net';
+
+  let url = `${hostname}/Platform${pathname}`;
+  url = url.replace('/Platform/Platform/', '/Platform/');
+
+  opts.headers = opts.headers || {};
+  opts.headers['x-api-key'] = process.env.BUNGIE_API_KEY;
+
+  if (opts.accessToken) {
+    opts.headers['Authorization'] = `Bearer ${opts.accessToken}`;
+  }
+
+  if (postBody) {
+    opts.method = 'POST';
+    if (typeof postBody === 'string') {
+      opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      opts.body = postBody;
+    } else {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(postBody);
+    }
+  }
+
+  return httpGet(url, opts).then(resp => {
+    // if (resp.ErrorStatus === 'DestinyAccountNotFound') {
+    //   return null;
+    // }
+
+    // if (has(resp, 'ErrorCode') && resp.ErrorCode !== 1) {
+    //   // const cleanedUrl = url.replace(/\/\d+\//g, '/_/');
+    //   const err = new Error(
+    //     'Bungie API Error ' +
+    //       resp.ErrorStatus +
+    //       ' - ' +
+    //       resp.Message +
+    //       '\nURL: ' +
+    //       url
+    //   );
+
+    //   err.data = resp;
+    //   throw err;
+    // }
+
+    // const result = resp.Response || resp;
+
+
+
+    return resp;
   });
-  let response = await request.json();
+}
+
+const getProfile = async (membershipType, membershipId, number) => {
+  
+  let response = await getDestiny(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,104,200,202,800,900`);
 
   return {
     response,
@@ -67,12 +126,7 @@ const getProfile = async (membershipType, membershipId, number) => {
 }
 
 const getGroupMembers = async (groupId, number) => {
-  let request = await fetch(`https://www.bungie.net/Platform/GroupV2/${groupId}/Members/`, {
-    "headers":{
-      "x-api-key": process.env.BUNGIE_API_KEY
-    },
-  });
-  let response = await request.json();
+  let response = await getDestiny(`/GroupV2/${groupId}/Members/`);
 
   return {
     response,
@@ -81,12 +135,7 @@ const getGroupMembers = async (groupId, number) => {
 }
 
 const getMemberGroups = async (membershipType, membershipId) => {
-  let request = await fetch(`https://www.bungie.net/Platform/GroupV2/User/${membershipType}/${membershipId}/0/1/`, {
-    "headers":{
-      "x-api-key": process.env.BUNGIE_API_KEY
-    },
-  });
-  let response = await request.json();
+  let response = await getDestiny(`/GroupV2/User/${membershipType}/${membershipId}/0/1/`);
 
   return response;
 }
@@ -110,6 +159,31 @@ const setState = (isScraping, duration = 0) => {
   }
 }
 
+const updateRanksTable = async data => {
+
+  const worker = async function(task, done) {
+
+    let sql = "INSERT INTO `ranks` (`memberId`,`triumphScoreRank`) VALUES ((SELECT `id` FROM `members` WHERE `membershipType` = ? AND `membershipId` = ?), ?) ON DUPLICATE KEY UPDATE `triumphScoreRank` = ?";
+    let inserts = [task.membershipType, task.membershipId, task.triumphScoreRank, task.triumphScoreRank];
+    sql = mysql.format(sql, inserts);
+
+    let inserted = await db.query(sql);
+
+  }
+
+  const q = qrate(worker, 100);
+
+  q.drain = async function() {
+console.log('ranks done.')
+    q.kill();
+  }
+  
+  data.forEach(m => {
+    q.push(m);
+  });
+
+}
+
 router.get('/', async function(req, res, next) {
 
   if (req.headers['x-api-key'] && req.headers['x-api-key'] === process.env.TOKEN) {
@@ -128,17 +202,24 @@ router.get('/', async function(req, res, next) {
     };
 
     let triumphStats = {};
+    let triumphScores = [];
     let memberActual = 0;
 
-    let q = async.queue(async function(task, callback) {
+    const worker = async function(task, done) {
+
+      // console.log('Processing', '@', new Date().getTime() - scrapeStart, 'ms');
+
       s.progress++;
 
       try {
-        console.log(`GET:    ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length}`);
+        // console.log(`GET:    ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length}`);
 
         let [profile, groups] = await Promise.all([getProfile(task.membershipType, task.membershipId, s.progress), getMemberGroups(task.membershipType, task.membershipId)]);
         
         if (profile.response.ErrorCode !== 1) {
+          if (profile.response.ErrorCode === 1601) {
+            return;
+          }
           console.log(`Bungie: ${task.membershipType}:${task.membershipId} ${profile.number}/${s.length} ErrorCode: ${profile.response.ErrorCode}`);
         } else {
 
@@ -148,7 +229,7 @@ router.get('/', async function(req, res, next) {
           }
 
           if (!profile.response.Response.profileRecords.data) {
-            console.log(`Error:  ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length} is a private profile`);
+            // console.log(`Error:  ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length} is a private profile`);
 
             let displayName = null;
             let dateLastPlayed = null;
@@ -157,6 +238,11 @@ router.get('/', async function(req, res, next) {
               dateLastPlayed = response.Response.profile.data.dateLastPlayed;
             } catch (e) {
 
+            }
+
+            let dateTest = new Date(dateLastPlayed).getTime();
+            if (dateTest < 10000) {
+              dateLastPlayed = null;
             }
             
             let sql = "UPDATE `members` SET `lastScraped` = ?, `displayName` = COALESCE(?, displayName), `dateLastPlayed` = COALESCE(?, dateLastPlayed), `groupId` = COALESCE(?, groupId) WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?";
@@ -179,6 +265,14 @@ router.get('/', async function(req, res, next) {
 
 
           memberActual++;
+
+
+
+          triumphScores.push({
+            membershipType: task.membershipType,
+            membershipId: task.membershipId,
+            score: profile.response.Response.profileRecords.data.score
+          });
 
           //
 
@@ -216,26 +310,31 @@ router.get('/', async function(req, res, next) {
 
           //
 
-          console.log(`OK:     ${task.membershipType}:${task.membershipId} ${profile.number}/${s.length}`);
+          // console.log(`OK:     ${task.membershipType}:${task.membershipId} ${profile.number}/${s.length}`);
         }
 
       } catch(e) {
         console.log(`Error:  ${task.membershipType}:${task.membershipId} ${s.progress}/${s.length}`, e);
       }
-    }, 10);
 
-    q.drain = function() {
-      console.log('q done');
 
-      fs.writeFile('./cache/temp.json', JSON.stringify(triumphStats), function(err, data) {
-        if (err) {
-          console.log(err);
-        } else {
-          console.log("Successfully Written to File.");
-        }
-      });
 
-      console.log(memberActual);
+    }
+
+    const q = qrate(worker, 77, 77);
+
+    q.drain = async function() {
+      // console.log('q done');
+
+      // fs.writeFile('./cache/temp.json', JSON.stringify(triumphStats), function(err, data) {
+      //   if (err) {
+      //     console.log(err);
+      //   } else {
+      //     console.log("Successfully Written to File.");
+      //   }
+      // });
+
+      // console.log(memberActual);
 
       for (const [hash, total] of Object.entries(triumphStats)) {
         triumphStats[hash] = (total / memberActual * 100).toFixed(2);
@@ -245,9 +344,19 @@ router.get('/', async function(req, res, next) {
         if (err) {
           console.log(err);
         } else {
-          console.log("Successfully Written to File.");
+          console.log("Successfully wrote Triumph stats to disk");
         }
       });
+
+      let sortedTriumphScores = triumphScores.sort((a, b) => (a.score > b.score) ? 1 : -1);
+
+      let rankedTriumphScores = sortedTriumphScores;
+      sortedTriumphScores.forEach((s, i) => {
+        rankedTriumphScores[i].triumphScoreRank = i;
+      });
+
+      await updateRanksTable(rankedTriumphScores);
+
 
       
       const scrapeEnd = new Date().getTime();
@@ -257,6 +366,10 @@ router.get('/', async function(req, res, next) {
       setState('0', scrapeEnd - scrapeStart);
 
       // end set status
+
+      clearInterval(intervalTimer);
+
+      q.kill();
     }
 
     let sql = "SELECT `id`, `membershipType`, `membershipId` FROM `members`";
@@ -269,6 +382,12 @@ router.get('/', async function(req, res, next) {
     members.forEach(m => {
       q.push(m);
     });
+
+    function progressInterval() {
+      console.log(chalk.inverse(`${(s.progress/s.length*100).toFixed(3)}% [${s.progress.toString().padStart(6,'0')}] of ${s.length} - ${Math.floor((new Date().getTime() - scrapeStart) / 60000)}m elapsed`));
+    }
+    
+    const intervalTimer = setInterval(progressInterval, 60000);
 
     res.status(200).send({
       ErrorCode: 1,

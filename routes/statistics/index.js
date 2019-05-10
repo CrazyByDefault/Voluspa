@@ -1,7 +1,6 @@
 const dotenv = require('dotenv');
 const express = require('express');
 const mysql = require('mysql');
-const fetch = require('node-fetch');
 const async = require('async');
 
 const router = express.Router();

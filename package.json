@@ -8,6 +8,7 @@
   "dependencies": {
     "async": "^2.6.2",
     "babel-install": "^2.1.0",
+    "chalk": "^2.4.2",
     "cookie-parser": "~1.4.3",
     "cors": "^2.8.5",
     "debug": "~2.6.9",
@@ -16,7 +17,7 @@
     "lodash": "^4.17.11",
     "morgan": "~1.9.0",
     "mysql": "^2.17.1",
-    "node-fetch": "^2.5.0",
-    "qrate": "^1.1.0"
+    "qrate": "^1.1.0",
+    "request": "^2.88.0"
   }
 }
