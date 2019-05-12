@@ -1,8 +1,9 @@
 const dotenv = require('dotenv');
 const express = require('express');
 const mysql = require('mysql');
-const fetch = require('node-fetch');
 const async = require('async');
+
+const { httpGet } = require('../../http');
 
 const router = express.Router();
 
@@ -12,6 +13,48 @@ const db = new database();
 const fs = require('fs');
 
 dotenv.config();
+
+async function getDestiny(pathname, opts = {}, postBody) {
+  const hostname = opts.useStatsEndpoint
+    ? `https://stats.bungie.net`
+    : 'https://www.bungie.net';
+
+  let url = `${hostname}/Platform${pathname}`;
+  url = url.replace('/Platform/Platform/', '/Platform/');
+
+  opts.headers = opts.headers || {};
+  opts.headers['x-api-key'] = process.env.BUNGIE_API_KEY;
+
+  if (opts.useAuthorization) {
+    if (pathname === '/App/OAuth/Token/') {
+      opts.headers['Authorization'] = `Basic ${Buffer.from(`${process.env.BUNGIE_CLIENT_ID}:${process.env.BUNGIE_CLIENT_SECRET}`).toString('base64')}`;
+    } else {
+      let tokens = await fsP.readFile('./cache/tokens.json');
+      tokens = JSON.parse(tokens.toString());
+
+      console.log(tokens.access_token)
+
+      opts.headers['Authorization'] = `Bearer ${tokens.access_token.value}`;
+    }
+  }
+
+  if (postBody) {
+    opts.method = 'POST';
+    if (typeof postBody === 'string') {
+      opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      opts.body = postBody;
+    } else {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(postBody);
+    }
+  }
+
+  console.log(url, opts, postBody)
+
+  return httpGet(url, opts).then(resp => {
+    return resp;
+  });
+}
 
 router.get('/', async function(req, res, next) {
   fs.readFile('./cache/tokens.json', function(err, buf) {
@@ -41,16 +84,19 @@ router.get('/authorize', async function(req, res, next) {
 router.get('/callback', async function(req, res, next) {
   const code = req.query.code;
 
-  let request = await fetch(`https://www.bungie.net/Platform/App/OAuth/Token/`, {
-    method: 'post',
-    body: `grant_type=authorization_code&code=${code}`,
-    headers: {
-      'Authorization': `Basic ${Buffer.from(`${process.env.BUNGIE_CLIENT_ID}:${process.env.BUNGIE_CLIENT_SECRET}`).toString('base64')}`,
-      'X-API-KEY': process.env.BUNGIE_API_KEY,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    }
-  });
-  let response = await request.json();
+  // let request = await fetch(`https://www.bungie.net/Platform/App/OAuth/Token/`, {
+  //   method: 'post',
+  //   body: `grant_type=authorization_code&code=${code}`,
+  //   headers: {
+  //     'Authorization': `Basic ${Buffer.from(`${process.env.BUNGIE_CLIENT_ID}:${process.env.BUNGIE_CLIENT_SECRET}`).toString('base64')}`,
+  //     'X-API-KEY': process.env.BUNGIE_API_KEY,
+  //     'Content-Type': 'application/x-www-form-urlencoded'
+  //   }
+  // });
+
+  let response = await getDestiny(`/App/OAuth/Token/`, {
+    useAuthorization: true
+  }, `grant_type=authorization_code&code=${code}`);
 
   if (response.access_token) {
     const time = new Date().getTime();

@@ -9,8 +9,31 @@ const database = require('../../db');
 const db = new database();
 
 const fs = require("fs");
+const fsP = fs.promises;
 
 dotenv.config();
+
+router.get('/', async function(req, res, next) {
+
+  let general, triumphs, collections;
+
+  general = await fsP.readFile('./cache/statistics.json');
+  general = JSON.parse(general.toString());
+  triumphs = await fsP.readFile('./cache/triumphs.json');
+  triumphs = JSON.parse(triumphs.toString());
+
+  res.status(200).send({
+    ErrorCode: 1,
+    Message: 'VOLUSPA',
+    Response: {
+      data: {
+        general,
+        triumphs
+      }
+    }
+  });
+
+});
 
 router.get('/triumphs', async function(req, res, next) {
 

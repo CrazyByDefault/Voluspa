@@ -16,20 +16,13 @@ function getIpV6Address() {
   return IP_V6_PREFIX + suffix;
 }
 
-function httpGet(url, baseOpts = {}) {
+function httpGet(url, opts) {
   return new Promise((resolve, reject) => {
-    const opts = {
-      method: 'GET',
-      uri: url
-    };
+    opts.uri = url;
 
     if (IP_V6_PREFIX && IP_V6_PREFIX.length > 2) {
       opts.localAddress = getIpV6Address();
       opts.family = 6;
-    }
-
-    if (baseOpts.headers) {
-      opts.headers = baseOpts.headers;
     }
 
     request(opts, (err, response, body) => {

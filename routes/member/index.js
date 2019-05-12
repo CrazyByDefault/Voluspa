@@ -12,6 +12,8 @@ const fs = require("fs");
 
 dotenv.config();
 
+const CURRENT_TIMESTAMP = { toSqlString: function() { return 'CURRENT_TIMESTAMP()'; } };
+
 router.post('/store', async function(req, res, next) {
   
   try {

@@ -5,15 +5,14 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
 var indexRouter = require('./routes/index');
-// var testRouter = require('./routes/test');
+var oauthRouter = require('./routes/oauth');
 
-// var leaderboardRouter = require('./routes/leaderboard');
-// var statusRouter = require('./routes/status');
 var scrapeRouter = require('./routes/scrape');
+var generateRouter = require('./routes/generate');
+
 var memberRouter = require('./routes/member');
 var statsRouter = require('./routes/statistics');
-// var oauthRouter = require('./routes/oauth');
-// var vendorRouter = require('./routes/vendor');
+var vendorRouter = require('./routes/vendor');
 
 var app = express();
 
@@ -33,15 +32,13 @@ app.use(function(req, res, next) {
 });
 
 app.use('/', indexRouter);
-// app.use('/test', testRouter);
+app.use('/oauth', oauthRouter);
 
-// app.use('/oauth', oauthRouter);
-// app.use('/vendor', vendorRouter);
-
-// app.use('/leaderboard', leaderboardRouter);
-// app.use('/status', statusRouter);
-app.use('/member', memberRouter);
 app.use('/scrape', scrapeRouter);
+app.use('/generate', generateRouter);
+
+app.use('/member', memberRouter);
 app.use('/statistics', statsRouter);
+app.use('/vendor', vendorRouter);
 
 module.exports = app;

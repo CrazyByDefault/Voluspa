@@ -37,13 +37,15 @@ const values = (response) => {
 
   let triumphScore = response.Response.profileRecords.data.score;
 
-  let infamyProgression = Object.values(response.Response.characterProgressions.data)[0].progressions[2772425241].currentProgress;
-  let infamyResets = response.Response.profileRecords.data.records[3901785488] ? response.Response.profileRecords.data.records[3901785488].objectives[0].progress : 0;
+  let progressionInfamy = Object.values(response.Response.characterProgressions.data)[0].progressions[2772425241].currentProgress;
+  let progressionInfamyResets = response.Response.profileRecords.data.records[3901785488] ? response.Response.profileRecords.data.records[3901785488].objectives[0].progress : 0;
 
-  let valorProgression = Object.values(response.Response.characterProgressions.data)[0].progressions[3882308435].currentProgress;
-  let valorResets = response.Response.profileRecords.data.records[559943871] ? response.Response.profileRecords.data.records[559943871].objectives[0].progress : 0;
+  let progressionValor = Object.values(response.Response.characterProgressions.data)[0].progressions[3882308435].currentProgress;
+  let progressionValorResets = response.Response.profileRecords.data.records[559943871] ? response.Response.profileRecords.data.records[559943871].objectives[0].progress : 0;
 
-  let gloryProgression = Object.values(response.Response.characterProgressions.data)[0].progressions[2679551909].currentProgress;
+  let progressionGlory = Object.values(response.Response.characterProgressions.data)[0].progressions[2679551909].currentProgress;
+
+
 
   return {
     membershipType,
@@ -53,11 +55,14 @@ const values = (response) => {
     characters: JSON.stringify(characters),
     timePlayed,
     triumphScore,
-    infamyProgression,
-    infamyResets,
-    valorProgression,
-    valorResets,
-    gloryProgression
+    progressionInfamy,
+    progressionInfamyResets,
+    progressionValor,
+    progressionValorResets,
+    progressionGlory,
+    triumphRecords: null,
+    collectionTotal: null,
+    collectionItems: null,
   }
 }
 
@@ -256,8 +261,8 @@ router.get('/', async function(req, res, next) {
 
           let store = values(profile.response);
 
-          let sql = "UPDATE `members` SET `lastScraped` = ?, `lastPublic` = ?, `displayName` = ?, `dateLastPlayed` = ?, `timePlayed` = ?, `characters` = ?, `triumphScore` = ?, `infamyResets` = ?, `infamyProgression` = ?, `valorResets` = ?, `valorProgression` = ?, `gloryProgression` = ?, `groupId` = COALESCE(?, groupId) WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?";
-          let inserts = [CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, store.displayName, store.dateLastPlayed, store.timePlayed, store.characters, store.triumphScore, store.infamyResets, store.infamyProgression, store.valorResets, store.valorProgression, store.gloryProgression, groupId, task.membershipType, task.membershipId];
+          let sql = "UPDATE `members` SET `displayName` = ?, `groupId` = COALESCE(?, groupId), `lastScraped` = ?, `lastPublic` = ?, `dateLastPlayed` = ?, `timePlayed` = ?, `characters` = ?, `progression` = ?, `progressionInfamyResets` = ?, `progressionInfamy` = ?, `progressionValorResets` = ?, `progressionValor` = ?, `progressionGlory` = ?, `triumphScore` = ?, `triumphRecords` = ?, `collectionTotal` = ?, `collectionItems` = ? WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?";;
+          let inserts = [store.displayName, groupId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, store.dateLastPlayed, store.timePlayed, store.characters, store.progression, store.progressionInfamyResets, store.progressionInfamy, store.progressionValorResets, store.progressionValor, store.progressionGlory, store.triumphScore, store.triumphRecords, store.collectionTotal, store.collectionItems, task.membershipType, task.membershipId];
           sql = mysql.format(sql, inserts);
 
           let update = await db.query(sql);
