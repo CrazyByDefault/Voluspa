@@ -14,6 +14,8 @@ var memberRouter = require('./routes/member');
 var statsRouter = require('./routes/statistics');
 var vendorRouter = require('./routes/vendor');
 
+var leaderboardsRouter = require('./routes/leaderboards');
+
 var app = express();
 
 app.use(cors());
@@ -40,5 +42,7 @@ app.use('/generate', generateRouter);
 app.use('/member', memberRouter);
 app.use('/statistics', statsRouter);
 app.use('/vendor', vendorRouter);
+
+app.use('/leaderboards', leaderboardsRouter);
 
 module.exports = app;

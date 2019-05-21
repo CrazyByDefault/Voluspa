@@ -183,6 +183,7 @@ router.get('/', async function(req, res, next) {
   if (req.headers['x-api-key'] && req.headers['x-api-key'] === process.env.TOKEN) {
 
     let minimalScrape = req.query.minimal || false;
+    let skipStats = req.query.skipStats || false;
 
     // set status
 
@@ -399,7 +400,9 @@ router.get('/', async function(req, res, next) {
 
       console.log(`Member actual: ${memberActual}`);
 
-      updateStatsFiles(true);
+      if (!skipStats) {
+        updateStatsFiles(true);
+      }
 
       // set status
 
@@ -427,7 +430,9 @@ router.get('/', async function(req, res, next) {
 
     function progressInterval() {
       console.log(chalk.inverse(`${((s.progress / s.length) * 100).toFixed(3)}% [${s.progress.toString().padStart(6, '0')}] of ${s.length} - ${Math.floor((new Date().getTime() - scrapeStart) / 60000)}m elapsed, ~${Math.floor(((new Date().getTime() - scrapeStart) / s.progress) * (s.length - s.progress) / 60000 / 60)}h remaining`));
-      updateStatsFiles();
+      if (!skipStats) {
+        updateStatsFiles(true);
+      }
     }
 
     const intervalTimer = setInterval(progressInterval, 30000);
