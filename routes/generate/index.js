@@ -1,33 +1,63 @@
 const dotenv = require('dotenv');
 const express = require('express');
 const mysql = require('mysql');
-const async = require('async');
 
 const router = express.Router();
 
-const database = require('../../db');
-const db = new database();
+const db = require('../../db');
 
 const fs = require("fs");
 const fsP = fs.promises;
 
 dotenv.config();
 
+function getLastReset() {
+  var d = new Date(),
+      day = d.getDay(),
+      diff = (day <= 2) ? (7 - 2 + day ) : (day - 2);
+
+  d.setDate(d.getDate() - diff);
+  d.setHours(17);
+  d.setMinutes(0);
+  d.setSeconds(0);
+
+  return d.toISOString().split('T')[0]+' '+d.toTimeString().split(' ')[0];
+}
+
 router.get('/', async function(req, res, next) {
 
+  let lastTuesday = getLastReset();
+
+  let tracking = await db.query("SELECT count(*) AS `count` FROM `members`");
+  let ranked = await db.query("SELECT count(*) as 'count' FROM ranks;");
+  let groups = await db.query("SELECT count(DISTINCT(`groupId`)) AS `count` FROM `members`");
+  let playedReset = await db.query(mysql.format("SELECT count(*) AS `count` FROM `members` WHERE `lastPlayed` > ?", [lastTuesday]));
+  let playedSeason = await db.query("SELECT count(*) AS `count` FROM `members` WHERE `lastPlayed` > '2019-03-05 17:00:00'");
+  let status = await db.query("SELECT isScraping, lastScraped, lastScrapedDuration FROM voluspa.status;");
+
+  let statistics = {
+    status: status[0],
+    tracking: tracking[0].count,
+    ranked: ranked[0].count,
+    groups: groups[0].count,
+    playedReset: playedReset[0].count,
+    playedSeason: playedSeason[0].count
+  };
+  
   let data, general, triumphs, collections;
 
-  general = await fsP.readFile('./cache/statistics.json');
-  general = JSON.parse(general.toString());
+  // general = await fsP.readFile('./cache/statistics.json');
+  // general = JSON.parse(general.toString());
   triumphs = await fsP.readFile('./cache/triumphs.json');
   triumphs = JSON.parse(triumphs.toString());
   collections = await fsP.readFile('./cache/collections.json');
   collections = JSON.parse(collections.toString());
 
   data = {
-    general,
+    general: statistics,
     triumphs,
-    collections
+    collections,
+    //groupIds: await "SELECT DISTINCT `groupId` from `members` LIMIT 100000"
   }
 
   fs.writeFile('./cache/rollup.json', JSON.stringify(data), function(err, data) {
@@ -48,19 +78,6 @@ router.get('/', async function(req, res, next) {
 
 });
 
-function getLastReset() {
-  var d = new Date(),
-      day = d.getDay(),
-      diff = (day <= 2) ? (7 - 2 + day ) : (day - 2);
-
-  d.setDate(d.getDate() - diff);
-  d.setHours(17);
-  d.setMinutes(0);
-  d.setSeconds(0);
-
-  return d.toISOString().split('T')[0]+' '+d.toTimeString().split(' ')[0];
-}
-
 router.get('/statistics', async function(req, res, next) {
 
   res.status(200).send({
@@ -74,8 +91,10 @@ router.get('/statistics', async function(req, res, next) {
   let groups = await db.query("SELECT count(DISTINCT(`groupId`)) AS `count` FROM `members`");
   let playedReset = await db.query(mysql.format("SELECT count(*) AS `count` FROM `members` WHERE `lastPlayed` > ?", [lastTuesday]));
   let playedSeason = await db.query("SELECT count(*) AS `count` FROM `members` WHERE `lastPlayed` > '2019-03-05 17:00:00'");
+  let status = await db.query("SELECT * FROM voluspa.status;");
 
   let statistics = {
+    status: status[0],
     tracking: tracking[0].count,
     groups: groups[0].count,
     playedReset: playedReset[0].count,

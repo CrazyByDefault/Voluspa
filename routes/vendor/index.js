@@ -7,8 +7,8 @@ const { httpGet } = require('../../http');
 
 const router = express.Router();
 
-const database = require('../../db');
-const db = new database();
+const db = require('../../db');
+
 
 const fs = require('fs');
 const fsP = fs.promises;

@@ -10,8 +10,8 @@ const { httpGet } = require('../../http');
 
 const router = express.Router();
 
-const database = require('../../db');
-const db = new database();
+const db = require('../../db');
+
 
 const fs = require('fs');
 
@@ -239,34 +239,10 @@ router.get('/', async function(req, res, next) {
             if (dateTest < 10000) {
               lastPlayed = null;
             }
+           
+            let sql = 'UPDATE `members` SET `displayName` = COALESCE(?, displayName), `groupId` = COALESCE(?, groupId), `lastScraped` = ?, `lastPlayed` = NULL, `timePlayed` = NULL, `progressionInfamyResets` = NULL, `progressionInfamy` = NULL, `progressionValorResets` = NULL, `progressionValor` = NULL, `progressionGlory` = NULL, `triumphScore` = NULL, `collectionTotal` = NULL, `sealRivensbane` = NULL, `sealCursebreaker` = NULL, `sealChronicler` = NULL, `sealUnbroken` = NULL, `sealDredgen` = NULL, `sealWayfarer` = NULL, `sealBlacksmith` = NULL, `sealReckoner` = NULL WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?';
 
-            let sql = 'UPDATE `members` SET `lastScraped` = ?, `displayName` = COALESCE(?, displayName), `lastPlayed` = COALESCE(?, lastPlayed), `groupId` = COALESCE(?, groupId) WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?';
-            let inserts = [CURRENT_TIMESTAMP, displayName, lastPlayed, groupId, task.membershipType, task.membershipId];
-            sql = mysql.format(sql, inserts);
-
-            let update = await db.query(sql);
-
-            return;
-          }
-
-          if (Object.keys(profile.response.Response.characterProgressions.data).length === 0) {
-            console.log('Why??')
-            console.log(`Error:  ${task.displayName.toString().padStart(20, ' ')} [${task.membershipType}:${task.membershipId}] ${s.progress}/${s.length} is a private profile`);
-
-            let displayName = null;
-            let lastPlayed = null;
-            try {
-              displayName = response.Response.profile.data.userInfo.displayName;
-              lastPlayed = response.Response.profile.data.dateLastPlayed;
-            } catch (e) {}
-
-            let dateTest = new Date(lastPlayed).getTime();
-            if (dateTest < 10000) {
-              lastPlayed = null;
-            }
-
-            let sql = 'UPDATE `members` SET `lastScraped` = ?, `displayName` = COALESCE(?, displayName), `lastPlayed` = COALESCE(?, lastPlayed), `groupId` = COALESCE(?, groupId) WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?';
-            let inserts = [CURRENT_TIMESTAMP, displayName, lastPlayed, groupId, task.membershipType, task.membershipId];
+            let inserts = [store.displayName, groupId, CURRENT_TIMESTAMP, task.membershipType, task.membershipId];
             sql = mysql.format(sql, inserts);
 
             let update = await db.query(sql);
@@ -373,7 +349,7 @@ router.get('/', async function(req, res, next) {
         tempTriumphStats[hash] = (total / memberActual * 100).toFixed(2);
       }
 
-      fs.writeFile(`./cache/triumphs${final ? null : '-part'}.json`, JSON.stringify(tempTriumphStats), function(err, data) {
+      fs.writeFile(`./cache/triumphs${final ? '' : '-part'}.json`, JSON.stringify(tempTriumphStats), function(err, data) {
         if (err) {
           console.log(err);
         } else {
@@ -386,7 +362,7 @@ router.get('/', async function(req, res, next) {
         tempCollectionStats[hash] = (total / memberActual * 100).toFixed(2);
       }
 
-      fs.writeFile(`./cache/collections${final ? null : '-part'}.json`, JSON.stringify(tempCollectionStats), function(err, data) {
+      fs.writeFile(`./cache/collections${final ? '' : '-part'}.json`, JSON.stringify(tempCollectionStats), function(err, data) {
         if (err) {
           console.log(err);
         } else {

@@ -10,7 +10,7 @@ var oauthRouter = require('./routes/oauth');
 var scrapeRouter = require('./routes/scrape');
 var generateRouter = require('./routes/generate');
 
-var memberRouter = require('./routes/member');
+var enqueueRouter = require('./routes/enqueue');
 var statsRouter = require('./routes/statistics');
 var vendorRouter = require('./routes/vendor');
 
@@ -39,7 +39,8 @@ app.use('/oauth', oauthRouter);
 app.use('/scrape', scrapeRouter);
 app.use('/generate', generateRouter);
 
-app.use('/member', memberRouter);
+app.use('/member', enqueueRouter);
+app.use('/enqueue', enqueueRouter);
 app.use('/statistics', statsRouter);
 app.use('/vendor', vendorRouter);
 

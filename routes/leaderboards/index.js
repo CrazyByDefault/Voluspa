@@ -3,8 +3,8 @@ const express = require('express');
 const mysql = require('mysql');
 const router = express.Router();
 
-const database = require('../../db');
-const db = new database();
+const db = require('../../db');
+
 
 dotenv.config();
 
@@ -33,12 +33,21 @@ router.get('/', async function(req, res, next) {
   }
 
   try {
-    let sql = "SELECT `members`.*, `ranks`.?? AS `rank` FROM `members`, `ranks` WHERE `ranks`.`membershipType` = `members`.`membershipType` AND `ranks`.`membershipId` = `members`.`membershipId` ORDER BY `ranks`.?? ASC LIMIT ? OFFSET ?";
+    let sql = `SELECT members.*, ranks.?? AS 'rank' 
+    FROM members, ranks 
+    WHERE ranks.membershipType = members.membershipType AND ranks.membershipId = members.membershipId 
+    ORDER BY ranks.?? ASC 
+    LIMIT ? OFFSET ?;
+
+    SELECT count(*) as 'results' FROM ranks;`;
     sql = mysql.format(sql, [sort, sort, limit, offset]);
 
     if (groupId) {
-      sql = "SELECT * FROM `members` INNER JOIN `ranks` ON `members`.`membershipType` = `ranks`.`membershipType` AND `members`.`membershipId` = `ranks`.`membershipId` WHERE `members`.`groupId` = ?";
-      sql = mysql.format(sql, [groupId]);
+      sql = `SELECT * 
+      FROM members 
+      INNER JOIN ranks ON members.membershipType = ranks.membershipType AND members.membershipId = ranks.membershipId 
+      WHERE members.lastScraped = members.lastPublic AND members.groupId = ?;`;
+      sql = mysql.format(sql, [groupId, groupId]);
     }
 
     let results = await db.query(sql);
@@ -85,7 +94,7 @@ router.get('/', async function(req, res, next) {
         }
       });
     } else {
-      data = results.map((p, i) => {
+      data = results[0].map((p, i) => {
         return {
           destinyUserInfo: {
             membershipType: p.membershipType,
@@ -130,7 +139,9 @@ router.get('/', async function(req, res, next) {
       Response: {
         status,
         data,
-        count: data.length
+        offset,
+        limit,
+        results: groupId ? data.length : results[1][0].results
       }
     });
 

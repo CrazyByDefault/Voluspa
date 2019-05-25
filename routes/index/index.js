@@ -3,8 +3,8 @@ const express = require('express');
 const mysql = require('mysql');
 const router = express.Router();
 
-const database = require('../../db');
-const db = new database();
+const db = require('../../db');
+
 
 dotenv.config();
 
