@@ -39,7 +39,6 @@ app.use('/oauth', oauthRouter);
 app.use('/scrape', scrapeRouter);
 app.use('/generate', generateRouter);
 
-app.use('/member', enqueueRouter);
 app.use('/enqueue', enqueueRouter);
 app.use('/statistics', statsRouter);
 app.use('/vendor', vendorRouter);

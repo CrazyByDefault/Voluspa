@@ -202,7 +202,7 @@ router.get('/', async function(req, res, next) {
     let triumphStats = {};
     let collectionStats = {};
 
-    const worker = async function(task, done) {
+    const worker = async task => {
       // console.log('Processing', '@', new Date().getTime() - scrapeStart, 'ms');
 
       s.progress++;
@@ -218,6 +218,15 @@ router.get('/', async function(req, res, next) {
           // }
 
           console.log(`Bungie: ${task.displayName.toString().padStart(20, ' ')} [${task.membershipType}:${task.membershipId}] ${profile.number}/${s.length} ErrorCode: ${profile.response.ErrorCode}`);
+
+          let sql = 'UPDATE `members` SET `lastScraped` = ?, `lastPlayed` = NULL, `timePlayed` = NULL, `progressionInfamyResets` = NULL, `progressionInfamy` = NULL, `progressionValorResets` = NULL, `progressionValor` = NULL, `progressionGlory` = NULL, `triumphScore` = NULL, `collectionTotal` = NULL, `sealRivensbane` = NULL, `sealCursebreaker` = NULL, `sealChronicler` = NULL, `sealUnbroken` = NULL, `sealDredgen` = NULL, `sealWayfarer` = NULL, `sealBlacksmith` = NULL, `sealReckoner` = NULL WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?';
+
+            let inserts = [CURRENT_TIMESTAMP, task.membershipType, task.membershipId];
+            sql = mysql.format(sql, inserts);
+
+            let update = await db.query(sql);
+
+            return {ok: true}
         } else {
           let groupId = null;
           if (groups.ErrorCode === 1 && groups.Response.results.length > 0) {
@@ -242,12 +251,12 @@ router.get('/', async function(req, res, next) {
            
             let sql = 'UPDATE `members` SET `displayName` = COALESCE(?, displayName), `groupId` = COALESCE(?, groupId), `lastScraped` = ?, `lastPlayed` = NULL, `timePlayed` = NULL, `progressionInfamyResets` = NULL, `progressionInfamy` = NULL, `progressionValorResets` = NULL, `progressionValor` = NULL, `progressionGlory` = NULL, `triumphScore` = NULL, `collectionTotal` = NULL, `sealRivensbane` = NULL, `sealCursebreaker` = NULL, `sealChronicler` = NULL, `sealUnbroken` = NULL, `sealDredgen` = NULL, `sealWayfarer` = NULL, `sealBlacksmith` = NULL, `sealReckoner` = NULL WHERE `members`.`membershipType` = ? AND `members`.`membershipId` = ?';
 
-            let inserts = [store.displayName, groupId, CURRENT_TIMESTAMP, task.membershipType, task.membershipId];
+            let inserts = [displayName, groupId, CURRENT_TIMESTAMP, task.membershipType, task.membershipId];
             sql = mysql.format(sql, inserts);
 
             let update = await db.query(sql);
 
-            return;
+            return {ok: true}
           }
 
           memberActual++;
@@ -338,6 +347,8 @@ router.get('/', async function(req, res, next) {
       } catch (e) {
         console.log(`Error:  ${task.displayName.toString().padStart(20, ' ')} [${task.membershipType}:${task.membershipId}] ${s.progress}/${s.length}`, e);
       }
+
+      return {ok: true}
     };
 
     const q = qrate(worker, 200, 200);
@@ -353,7 +364,7 @@ router.get('/', async function(req, res, next) {
         if (err) {
           console.log(err);
         } else {
-          console.log("Successfully wrote Triumph stats to disk");
+          console.log(`Saved ${final ? '' : 'incremental'} Triumph stats to disk`);
         }
       });
       
@@ -366,7 +377,7 @@ router.get('/', async function(req, res, next) {
         if (err) {
           console.log(err);
         } else {
-          console.log("Successfully wrote Collection stats to disk");
+          console.log(`Saved ${final ? '' : 'incremental'} Collection stats to disk`);
         }
       });
     }
@@ -374,6 +385,7 @@ router.get('/', async function(req, res, next) {
     q.drain = () => {
       const scrapeEnd = new Date().getTime();
 
+      console.log('SCRAPE COMPLETE! YAY');
       console.log(`Member actual: ${memberActual}`);
 
       if (!skipStats) {
@@ -394,7 +406,7 @@ router.get('/', async function(req, res, next) {
     //  WHERE `groupId` = '172382'
     let sql = mysql.format("SELECT `id`, `membershipType`, `membershipId`, `displayName` FROM `members`", []);
     if (minimalScrape) {
-      sql = mysql.format("SELECT `id`, `membershipType`, `membershipId`, `displayName` FROM `members` WHERE `lastPublic` IS NOT NULL", []);
+      sql = mysql.format("SELECT `id`, `membershipType`, `membershipId`, `displayName` FROM `members` WHERE `lastPublic` = `lastScraped` OR `lastScraped` IS NULL", []);
     }
 
     let members = await db.query(sql);
@@ -490,9 +502,8 @@ router.get('/groups', async function(req, res, next) {
       // end set status
     };
 
-    let sql = 'SELECT DISTINCT `groupId` FROM `members`';
-    let inserts = [];
-    sql = mysql.format(sql, inserts);
+    let sql = `SELECT groupId FROM voluspa.groups`;
+    sql = mysql.format(sql, []);
 
     let groups = await db.query(sql);
 
