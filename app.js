@@ -11,6 +11,8 @@ var generateRouter = require('./routes/generate');
 
 var enqueueRouter = require('./routes/enqueue');
 var statsRouter = require('./routes/statistics');
+
+var manifestRouter = require('./routes/manifest');
 var vendorRouter = require('./routes/vendor');
 
 var leaderboardsRouter = require('./routes/leaderboards');
@@ -39,6 +41,8 @@ app.use('/generate', generateRouter);
 
 app.use('/enqueue', enqueueRouter);
 app.use('/statistics', statsRouter);
+
+app.use('/manifest', manifestRouter);
 app.use('/vendor', vendorRouter);
 
 app.use('/leaderboards', leaderboardsRouter);

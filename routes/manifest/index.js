@@ -1,14 +1,15 @@
+const path = require('path');
 const dotenv = require('dotenv');
 const express = require('express');
 const mysql = require('mysql');
 const async = require('async');
 
 const { fetch } = require('../../http2');
-const { loadManifest } = require('../../manifest');
 
 const router = express.Router();
 
 const db = require('../../db');
+
 
 const fs = require('fs');
 
@@ -100,26 +101,26 @@ async function getDestiny(pathname, opts = {}, postBody) {
 
 const CURRENT_TIMESTAMP = { toSqlString: function() { return 'CURRENT_TIMESTAMP()'; } };
 
-router.get('/', async function(req, res, next) {
-  const vendorHash = req.query.hash || '2190858386';
-  const withDefinitions = req.query.defined;
+router.get('/update', async function(req, res, next) {
 
-  let tokens = await fs.promises.readFile('./cache/tokens.json');
-      tokens = JSON.parse(tokens.toString());
+  let response = await getDestiny(`/Destiny2/Manifest/`);
 
-  if (tokens) {
-    let response = await getDestiny(`/Destiny2/1/Profile/4611686018449662397/Character/2305843009260574394/Vendors/${vendorHash}/?components=300,301,302,304,305,400,401,402`, { useAccessToken: true });
+  if (response.ErrorCode === 1) {
 
-    if (response.ErrorCode === 1) {
+    let pathEn = response.Response.jsonWorldContentPaths.en;
 
-      let instances = {
-        categories: response.Response.categories,
-        itemComponents: response.Response.itemComponents,
-        sales: response.Response.sales,
-        vendor: response.Response.vendor
-      }
+    let alreadyUpdated = await fs.promises.access(`./cache/manifest/${path.basename(pathEn)}`)
+      .then(() => { return true; })
+      .catch((err) => { return false; });
 
-      fs.writeFile(`./cache/vendor/${vendorHash}.json`, JSON.stringify(instances), function(err, data) {
+    if (!alreadyUpdated) {
+      let manifest = await fetch(`https://www.bungie.net${pathEn}`).then(resp => {
+        return resp;
+      }).catch(err => {
+        console.log(`122`, err.statusCode);
+      });
+
+      await fs.promises.writeFile(`./cache/manifest/${path.basename(pathEn)}`, JSON.stringify(manifest), function(err, data) {
         if (err) {
           console.log(err);
         } else {
@@ -127,36 +128,26 @@ router.get('/', async function(req, res, next) {
         }
       });
 
-      if (withDefinitions) {
-        const manifest = await loadManifest();
-
-        Object.keys(instances.sales.data).forEach(key => {
-          if (instances.sales.data[key].itemHash) {
-            instances.sales.data[key].itemDefinition = manifest.DestinyInventoryItemDefinition[instances.sales.data[key].itemHash];
-          }
-          
-        })
-      }
-
       res.status(200).send({
-        ErrorCode: 1,
+        ErrorCode: 201,
         Message: 'VOLUSPA',
-        Response: instances
       });
-      
+
     } else {
-      res.status(500).send({
-        ErrorCode: response.ErrorCode,
-        Message: 'VOLUSPA',
-        Response: response
+      res.status(200).send({
+        ErrorCode: 200,
+        Message: 'VOLUSPA'
       });
     }
+
   } else {
     res.status(500).send({
-      ErrorCode: 500,
-      Message: 'VOLUSPA'
+      ErrorCode: 200,
+      Message: 'VOLUSPA',
+      Response: response
     });
   }
+  
 });
 
 module.exports = router;

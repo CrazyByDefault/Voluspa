@@ -16,18 +16,25 @@ function getIpV6Address() {
   return IP_V6_PREFIX + suffix;
 }
 
-function httpGet(url, opts) {
+function fetch(url, opts = {}) {
   return new Promise((resolve, reject) => {
     opts.uri = url;
 
-    if (IP_V6_PREFIX && IP_V6_PREFIX.length > 2) {
-      opts.localAddress = getIpV6Address();
-      opts.family = 6;
-    }
+    // if (IP_V6_PREFIX && IP_V6_PREFIX.length > 2) {
+    //   opts.localAddress = getIpV6Address();
+    //   opts.family = 6;
+    // }
 
     request(opts, (err, response, body) => {
       try {
-        err ? reject(err) : resolve(JSON.parse(body));
+        if (err) {
+          err.statusCode = response.statusCode;
+          err.response = response;
+          err.body = body;
+          reject(err);
+        } else {
+          resolve(JSON.parse(body))
+        }
       } catch (err) {
         err.statusCode = response.statusCode;
         err.response = response;
@@ -38,4 +45,4 @@ function httpGet(url, opts) {
   });
 }
 
-module.exports = { httpGet };
+module.exports = { fetch };

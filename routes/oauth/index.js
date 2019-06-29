@@ -3,7 +3,7 @@ const express = require('express');
 const mysql = require('mysql');
 const async = require('async');
 
-const { httpGet } = require('../../http');
+const { fetch } = require('../../http2');
 
 const router = express.Router();
 
@@ -51,8 +51,11 @@ async function getDestiny(pathname, opts = {}, postBody) {
 
   console.log(url, opts, postBody)
 
-  return httpGet(url, opts).then(resp => {
+  return fetch(url, opts).then(resp => {
+    console.log(`95`, resp)
     return resp;
+  }).catch(err => {
+    console.log(`98`, err.statusCode)
   });
 }
 
@@ -83,16 +86,6 @@ router.get('/authorize', async function(req, res, next) {
 
 router.get('/callback', async function(req, res, next) {
   const code = req.query.code;
-
-  // let request = await fetch(`https://www.bungie.net/Platform/App/OAuth/Token/`, {
-  //   method: 'post',
-  //   body: `grant_type=authorization_code&code=${code}`,
-  //   headers: {
-  //     'Authorization': `Basic ${Buffer.from(`${process.env.BUNGIE_CLIENT_ID}:${process.env.BUNGIE_CLIENT_SECRET}`).toString('base64')}`,
-  //     'X-API-KEY': process.env.BUNGIE_API_KEY,
-  //     'Content-Type': 'application/x-www-form-urlencoded'
-  //   }
-  // });
 
   let response = await getDestiny(`/App/OAuth/Token/`, {
     useAuthorization: true
