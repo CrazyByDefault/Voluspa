@@ -28,14 +28,53 @@ async function getDestiny(pathname, opts = {}, postBody) {
 
   if (opts.useAccessToken) {
     if (pathname === '/App/OAuth/Token/') {
+
       opts.headers['Authorization'] = `Basic ${Buffer.from(`${process.env.BUNGIE_CLIENT_ID}:${process.env.BUNGIE_CLIENT_SECRET}`).toString('base64')}`;
+
     } else {
+
       let tokens = await fsP.readFile('./cache/tokens.json');
       tokens = JSON.parse(tokens.toString());
 
-      console.log(tokens.access_token)
+      let now = new Date().getTime() + 10000;
+      let then = new Date(tokens.access_token.expires_in);
 
-      opts.headers['Authorization'] = `Bearer ${tokens.access_token.value}`;
+      let accessToken = tokens.access_token.value;
+
+      if (now > then) {
+        let response = await getDestiny(`/App/OAuth/Token/`, {
+          useAuthorization: true
+        }, `grant_type=refresh_token&refresh_token=${tokens.refresh_token.value}`);
+
+        if (response.access_token) {
+          const time = new Date().getTime();
+      
+          let tokens = {};
+      
+          tokens.access_token = {
+            value: response.access_token,
+            expires_in: time + response.expires_in * 1000
+          };
+      
+          tokens.refresh_token = {
+            value: response.refresh_token,
+            expires_in: time + response.refresh_expires_in * 1000
+          };
+      
+          fs.writeFile('./cache/tokens.json', JSON.stringify(tokens), function(err, data) {
+            if (err) {
+              console.log(err);
+            } else {
+              console.log("Successfully Written to File.");
+            }
+          });
+
+          accessToken = tokens.access_token.value;
+        }
+      }
+
+      opts.headers['Authorization'] = `Bearer ${accessToken}`;
+
     }
   }
 
@@ -54,26 +93,20 @@ async function getDestiny(pathname, opts = {}, postBody) {
 
   return httpGet(url, opts).then(resp => {
     return resp;
+  }).catch(err => {
+    
   });
 }
 
 const CURRENT_TIMESTAMP = { toSqlString: function() { return 'CURRENT_TIMESTAMP()'; } };
 
 router.get('/', async function(req, res, next) {
-  const vendorHash = req.query.vendor || '2190858386';
+  const vendorHash = req.query.hash || '2190858386';
 
   let tokens = await fsP.readFile('./cache/tokens.json');
       tokens = JSON.parse(tokens.toString());
 
   if (tokens) {
-    // let request = await fetch(`https://www.bungie.net/Platform/Destiny2/1/Profile/4611686018449662397/Character/2305843009260574394/Vendors/${vendorHash}/?components=300,301,302,304,305,400,401,402`, {
-    //   method: 'get',
-    //   headers: {
-    //     Authorization: `Bearer ${tokens.access_token.value}`,
-    //     'X-API-KEY': process.env.BUNGIE_API_KEY
-    //   }
-    // });
-
     let response = await getDestiny(`/Destiny2/1/Profile/4611686018449662397/Character/2305843009260574394/Vendors/${vendorHash}/?components=300,301,302,304,305,400,401,402`, { useAccessToken: true });
 
     if (response.ErrorCode === 1) {
@@ -85,82 +118,19 @@ router.get('/', async function(req, res, next) {
         vendor: response.Response.vendor
       }
 
+      fs.writeFile(`./cache/vendor/${vendorHash}.json`, JSON.stringify(instances), function(err, data) {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log("Successfully Written to File.");
+        }
+      });
+
       res.status(200).send({
         ErrorCode: 1,
         Message: 'VOLUSPA',
         Response: instances
       });
-  
-      return;
-
-      let sql = "SELECT * FROM `directus_tc01`.`destiny_2_xur_sales` ORDER BY `directus_tc01`.`destiny_2_xur_sales`.`season` DESC, `directus_tc01`.`destiny_2_xur_sales`.`week` DESC LIMIT 1";
-      let inserts = [];
-      sql = mysql.format(sql, inserts);
-
-      let result = await db.query(sql);
-
-      let latest = result.length === 1 ? result[0] : false;
-
-      let last5DaysTime = new Date().getTime() - 518400000;
-      let latestTime = new Date(latest.datetime).getTime();
-
-      if (latest && last5DaysTime > latestTime) {
-
-        let sql = "INSERT INTO `directus_tc01`.`destiny_2_xur_sales` (`id`, `season`, `week`, `datetime`, `location`, `iteration`, `instances`) VALUES (NULL, ?, ?, ?, ?, ?, ?)";
-        let inserts = [latest.season, latest.week + 1, CURRENT_TIMESTAMP, '0', latest.iteration + 1, JSON.stringify(instances)];
-        sql = mysql.format(sql, inserts);
-
-        let result = await db.query(sql);
-
-        let insertId = result.insertId;
-
-        //
-
-        let itemHashes = Object.values(response.Response.sales.data).map(s => s.itemHash);
-
-        console.log(Object.values(response.Response.sales.data), itemHashes);
-
-        var q = async.queue(async function(task, callback) {
-
-          console.log('test')
-
-          let sql = "INSERT INTO `directus_tc01`.`destiny_2_xur_item_sales`(`id`, `item_id`, `sales_id`) VALUES (NULL, (SELECT `id` FROM `directus_tc01`.`destiny_2_xur_items` WHERE `directus_tc01`.`destiny_2_xur_items`.`hash` = ?), ?)";
-          let inserts = [task.itemHash, insertId];
-          sql = mysql.format(sql, inserts);
-
-          let result = await db.query(sql);
-
-          console.log(result)
-        
-        }, 10);
-    
-        itemHashes.forEach(m => {
-          q.push({
-            itemHash: m
-          });
-        });
-
-        q.drain = function() {
-          res.status(200).send({
-            ErrorCode: 1,
-            Message: 'VOLUSPA',
-          });
-        }
-
-
-
-      } else {
-        
-        // up to date already
-
-        res.status(200).send({
-          ErrorCode: 1,
-          Message: 'VOLUSPA',
-          Response: latest
-        });
-
-      }
-
       
     } else {
       res.status(500).send({

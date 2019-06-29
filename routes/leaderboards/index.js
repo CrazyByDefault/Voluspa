@@ -124,7 +124,8 @@ router.get('/', async function(req, res, next) {
             dredgen: !!p.sealDredgen,
             wayfarer: !!p.sealWayfarer,
             blacksmith: !!p.sealBlacksmith,
-            recokoner: !!p.sealReckoner
+            recokoner: !!p.sealReckoner,
+            shadow: !!p.sealShadow
           },
           rank: p.rank
         }
@@ -219,7 +220,8 @@ router.get('/position', async function(req, res, next) {
           dredgen: !!p.sealDredgen,
           wayfarer: !!p.sealWayfarer,
           blacksmith: !!p.sealBlacksmith,
-          recokoner: !!p.sealReckoner
+          recokoner: !!p.sealReckoner,
+          shadow: !!p.sealShadow
         },
         ranks: {
           triumphScore: p.triumphScoreRank,

@@ -29,6 +29,7 @@ function httpGet(url, opts) {
       try {
         err ? reject(err) : resolve(JSON.parse(body));
       } catch (err) {
+        err.statusCode = response.statusCode;
         err.response = response;
         err.body = body;
         reject(err);

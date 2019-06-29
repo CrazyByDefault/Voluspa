@@ -7,7 +7,6 @@ var logger = require('morgan');
 var indexRouter = require('./routes/index');
 var oauthRouter = require('./routes/oauth');
 
-var scrapeRouter = require('./routes/scrape');
 var generateRouter = require('./routes/generate');
 
 var enqueueRouter = require('./routes/enqueue');
@@ -36,7 +35,6 @@ app.use(function(req, res, next) {
 app.use('/', indexRouter);
 app.use('/oauth', oauthRouter);
 
-app.use('/scrape', scrapeRouter);
 app.use('/generate', generateRouter);
 
 app.use('/enqueue', enqueueRouter);

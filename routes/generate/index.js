@@ -29,11 +29,12 @@ router.get('/', async function(req, res, next) {
   let lastTuesday = getLastReset();
 
   let tracking = await db.query("SELECT count(*) AS `count` FROM `members`");
+  let public = await db.query("SELECT count(*) AS `count` FROM `members` WHERE `lastScraped` = `lastPublic`");
   let ranked = await db.query("SELECT count(*) as 'count' FROM ranks;");
   let groups = await db.query("SELECT count(DISTINCT(`groupId`)) AS `count` FROM `members`");
   let playedReset = await db.query(mysql.format("SELECT count(*) AS `count` FROM `members` WHERE `lastPlayed` > ?", [lastTuesday]));
-  let playedSeason = await db.query("SELECT count(*) AS `count` FROM `members` WHERE `lastPlayed` > '2019-03-05 17:00:00'");
-  let status = await db.query("SELECT isScraping, lastScraped, lastScrapedDuration FROM voluspa.status;");
+  let playedSeason = await db.query("SELECT count(*) AS `count` FROM `members` WHERE `lastPlayed` > '2019-06-04 17:00:00'");
+  let status = await db.query("SELECT isScraping, lastScraped, lastScrapedDuration, lastRanked FROM voluspa.status;");
 
   let statistics = {
     status: status[0],
@@ -44,19 +45,45 @@ router.get('/', async function(req, res, next) {
     playedSeason: playedSeason[0].count
   };
   
-  let data, general, triumphs, collections;
+  let data, general, triumphs, collections, hawthorne;
 
   // general = await fsP.readFile('./cache/statistics.json');
   // general = JSON.parse(general.toString());
-  triumphs = await fsP.readFile('./cache/triumphs.json');
+  triumphs = await fsP.readFile('../scraper/cache/triumphs.json');
   triumphs = JSON.parse(triumphs.toString());
-  collections = await fsP.readFile('./cache/collections.json');
+  collections = await fsP.readFile('../scraper/cache/collections.json');
   collections = JSON.parse(collections.toString());
+  hawthorne = await fsP.readFile('./cache/vendor/3347378076.json');
+  hawthorne = JSON.parse(hawthorne.toString());
+
+  let raidBountyIndexes = hawthorne.categories.data.categories.find(d => d.displayCategoryIndex === 6).itemIndexes;
+  let raidBountyHashes = Object.values(hawthorne.sales.data).map(item => {
+    if (raidBountyIndexes.includes(item.vendorItemIndex)) {
+      return item.itemHash;
+    } else {
+      return false
+    }
+  }).filter(t => t);
+
+  let memberActual = public[0].count;
+
+  let tempTriumphStats = {};
+  for (const [hash, total] of Object.entries(triumphs)) {
+    tempTriumphStats[hash] = (total / memberActual * 100).toFixed(2);
+  }
+
+  let tempCollectionStats = {};
+  for (const [hash, total] of Object.entries(collections)) {
+    tempCollectionStats[hash] = (total / memberActual * 100).toFixed(2);
+  }
 
   data = {
     general: statistics,
-    triumphs,
-    collections,
+    triumphs: tempTriumphStats,
+    collections: tempCollectionStats,
+    bounties: {
+      hawthorne: raidBountyHashes
+    }
     //groupIds: await "SELECT DISTINCT `groupId` from `members` LIMIT 100000"
   }
 
